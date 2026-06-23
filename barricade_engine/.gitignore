@@ -1,0 +1,23 @@
+# --- Rust / Cargo ---
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints
+/.venv/
+/env/
+/venv/
+
+# --- Profiling et Caches IDE ---
+.vscode/
+.idea/
+*.prof
+*.log
+
+# --- Fichiers spécifiques à exclure ---
+src/monte_carlo.rs

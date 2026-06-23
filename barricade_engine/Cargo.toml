@@ -1,0 +1,13 @@
+[package]
+name = "Kuyper"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+# Indispensable : dit à Rust de compiler une librairie dynamique (.dll / .pyd) que Python peut lire
+name = "Kuyper"
+crate-type = ["cdylib"] 
+path = "src/lib.rs"
+
+[dependencies]
+pyo3 = { version = "0.22.0", features = ["extension-module"] }
