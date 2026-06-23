@@ -10,12 +10,12 @@ use std::time::Instant;
 #[pyclass]
 #[derive(Clone, Debug)]
 pub struct EvalWeights {
-    // --- COEFFS DE DÉBUT / MILIEU DE PARTIE (Middlegame) ---
+    // Middlegame weights
     #[pyo3(get, set)] pub mg_course_mult: f32,
-    #[pyo3(get, set)] pub mg_delta_penalty_mult: f32, // REMPLACE vuln_threat
+    #[pyo3(get, set)] pub mg_delta_penalty_mult: f32,
     #[pyo3(get, set)] pub mg_surface_mult: f32,
-    #[pyo3(get, set)] pub mg_tunnel_bonus: f32,       // REMPLACE clausto_threshold
-    #[pyo3(get, set)] pub mg_immunity_bonus: f32,     // REMPLACE clausto_penalty
+    #[pyo3(get, set)] pub mg_tunnel_bonus: f32,
+    #[pyo3(get, set)] pub mg_immunity_bonus: f32,
     #[pyo3(get, set)] pub mg_wall_base_value: f32,
     #[pyo3(get, set)] pub mg_wall_inflation: f32,
     #[pyo3(get, set)] pub mg_parity_bonus: f32,
@@ -24,7 +24,7 @@ pub struct EvalWeights {
     #[pyo3(get, set)] pub mg_tempo_bonus: f32,
     #[pyo3(get, set)] pub mg_gravity_bonus: f32,
 
-    // --- COEFFS DE FIN DE PARTIE (Endgame) ---
+    // Endgame weights
     #[pyo3(get, set)] pub eg_course_mult: f32,
     #[pyo3(get, set)] pub eg_delta_penalty_mult: f32,
     #[pyo3(get, set)] pub eg_surface_mult: f32,
@@ -44,12 +44,12 @@ impl EvalWeights {
     #[new]
     pub fn new() -> Self {
         EvalWeights {
-            // --- COEFFS DE DÉBUT / MILIEU DE PARTIE (Middlegame) ---
+            // Middlegame weights
             mg_course_mult: 6.46,
             mg_delta_penalty_mult: 1.10,
-            mg_surface_mult: 0.50,      // L'IA a abandonné l'idée de surface (Bloqué au minimum)
+            mg_surface_mult: 0.50,
             mg_tunnel_bonus: 1.90,
-            mg_immunity_bonus: 19.47,   // Poids statique rare
+            mg_immunity_bonus: 19.47,
             mg_wall_base_value: 3.87,
             mg_wall_inflation: 30.32,
             mg_parity_bonus: 2.26,
@@ -58,10 +58,10 @@ impl EvalWeights {
             mg_tempo_bonus: 1.75,
             mg_gravity_bonus: 1.00,
 
-            // --- COEFFS DE FIN DE PARTIE (Endgame) ---
-            eg_course_mult: 10.10,      // Sprint absolu sur-prioritaire
+            // Endgame weights
+            eg_course_mult: 10.10,
             eg_delta_penalty_mult: 2.49,
-            eg_surface_mult: 0.00,      // Surface totalement ignorée
+            eg_surface_mult: 0.00,      // surface is ignored in the endgame
             eg_tunnel_bonus: 2.85,
             eg_immunity_bonus: 28.55,
             eg_wall_base_value: 1.59,
@@ -96,21 +96,21 @@ impl EvalWeights {
 
 
 
-// Table de hashage 
+// Zobrist hashing table
 pub struct ZobristTable {
     pub p0_pos: [u64; 81],
     pub p1_pos: [u64; 81],
     pub walls_h: [u64; 64],
     pub walls_v: [u64; 64],
-    pub player_turn: u64, // Appliqué uniquement si c'est au tour de P1
+    pub player_turn: u64, // XORed in only when it's P1's turn
 }
 
 
 impl ZobristTable {
     fn init() -> Self {
-        let mut prng = 1070372_u64; // Seed
-        
-        // Petite fonction XorShift pour générer des nombres très aléatoires
+        let mut prng = 1070372_u64; // seed
+
+        // xorshift PRNG
         let mut next_rnd = || -> u64 {
             prng ^= prng << 13;
             prng ^= prng >> 7;
@@ -165,7 +165,7 @@ pub struct GameState {
 }
 
 // =================================================================
-//  MÉCANIQUE INTERNE PURE (Invisible et inaccessible par Python)
+//  Internal mechanics (not exposed to Python)
 // =================================================================
 impl GameState {
     const TOP_EDGE: u128 = 0x1FF;
@@ -175,20 +175,20 @@ impl GameState {
 
     #[inline]
     pub fn xy_to_cell_idx(x: u8, y: u8) -> u8 {
-        debug_assert!(x < 9 && y < 9, "Erreur fatale: Case ({}, {}) hors du plateau", x, y);
+        debug_assert!(x < 9 && y < 9, "Cell ({}, {}) is out of bounds", x, y);
         y * 9 + x
     }
 
     #[inline]
     pub fn xy_to_wall_idx(x: u8, y: u8) -> u8 {
-        debug_assert!(x < 8 && y < 8, "Erreur fatale: Mur ({}, {}) hors grille", x, y);
+        debug_assert!(x < 8 && y < 8, "Wall ({}, {}) is out of bounds", x, y);
         y * 8 + x
     }
 
     #[inline]
     fn expand_8x8_to_9x9(walls: u64) -> u128 {
         let mut res = 0u128;
-        res |= walls as u128 & 0xFF; // Correction du Warning (parenthèses retirées)
+        res |= walls as u128 & 0xFF;
         res |= ((walls >> 8) as u128 & 0xFF) << 9;
         res |= ((walls >> 16) as u128 & 0xFF) << 18;
         res |= ((walls >> 24) as u128 & 0xFF) << 27;
@@ -217,7 +217,7 @@ impl GameState {
 
 
 
-        // ---- FEN Notation ----
+        // ---- FEN notation ----
     
 
     fn pos_to_str(pos: u8) -> String {
@@ -247,7 +247,7 @@ impl GameState {
 
 
 // =================
-// INTERFACE PYTHON 
+// Python interface
 // =================
 
 #[pymethods]
@@ -264,7 +264,7 @@ impl GameState {
         let p0_start = 4;
         let p1_start = 76;
         
-        // Le Hash de base ne contient que les positions initiales 
+        // initial hash only covers the starting positions
         let initial_hash = z.p0_pos[p0_start as usize] ^ z.p1_pos[p1_start as usize];
 
         GameState {
@@ -273,7 +273,7 @@ impl GameState {
             player_to_move: 0,
             walls_h: 0,
             walls_v: 0, 
-            hash: initial_hash, // On enregistre le hash
+            hash: initial_hash,
         }
     }
 
@@ -365,6 +365,8 @@ impl GameState {
         }
     }
 
+    /// BFS shortest-path distance plus structural metrics (reachable area, forced
+    /// detour cost, tunnel count, immunity) used by the evaluation function.
     pub fn get_distances(&self) -> (i32, u32, f32, f32, bool, i32, u32, f32, f32, bool) { 
         let (b_up, b_down, b_left, b_right) = self.get_wall_blockers();
         
@@ -377,25 +379,22 @@ impl GameState {
             let start_pos = self.positions[player as usize];
             let mut reach = 1u128 << start_pos;
             let mut distance = 0;
-            let mut history = [0u128; 128]; // Mémorise la vague de propagation
+            let mut history = [0u128; 128]; // reach mask at each BFS step, for backtracking
 
             loop {
                 history[distance as usize] = reach; 
 
-                // --- OBJECTIF ATTEINT ---
                 if (reach & target_mask) != 0 { 
-                    let surf = reach.count_ones(); // La surface totale disponible
+                    let surf = reach.count_ones(); // total cells reachable from start
                     
-                    // On isole la case d'arrivée pour retracer le chemin inverse
+                    // backtrack from the goal to the start to recover the shortest path
                     let mut path_mask = reach & target_mask;
                     
                     let mut max_delta = 0.0;
                     let mut tunnel_security = 0.0;
                     let mut immunity = false;
 
-                    // --- RETRAÇAGE DU CHEMIN ET ANALYSE STRUCTURELLE ---
                     if distance > 0 {
-                        // On remonte le chemin de l'arrivée jusqu'au départ
                         for d in (0..distance).rev() {
                             let prev_expanded = path_mask 
                                 | ((path_mask & allow_up) >> 9)
@@ -403,29 +402,28 @@ impl GameState {
                                 | ((path_mask & allow_left) >> 1)
                                 | ((path_mask & allow_right) << 1);
 
-                            // Intersection avec la vague précédente pour trouver la case exacte du chemin
+                            // intersect with the previous wave to isolate the exact path cell(s)
                             path_mask = prev_expanded & history[d as usize];
 
-                            // 1. DÉTECTION DU CHEMIN FORCÉ (Le Tunnel)
+                            // a corridor walled on both sides is a tunnel: no detour possible
                             let walled_left = (path_mask & allow_left) == 0;
                             let walled_right = (path_mask & allow_right) == 0;
                             let walled_up = (path_mask & allow_up) == 0;
                             let walled_down = (path_mask & allow_down) == 0;
 
-                            // Si on a des murs parallèles des deux côtés, c'est un tunnel sécurisé
                             if (walled_left && walled_right) || (walled_up && walled_down) {
                                 tunnel_security += 1.0; 
                             }
 
-                            // 2. DÉTECTION DU DELTA ET DE L'IMMUNITÉ
-                            // Si la largeur du chemin est de 1 ou 2 cases, c'est un goulot potentiellement dangereux
+                            // a 1-2 cell-wide path is a potential bottleneck the opponent
+                            // could wall off; estimate the cost of the alternate route
                             if path_mask.count_ones() <= 2 && !immunity {
                                 let blocked_mask = path_mask;
                                 let mut alt_reach = 1u128 << start_pos;
                                 let mut alt_dist = 0;
                                 let mut found = false;
 
-                                // Mini BFS de secours ultra-rapide (On teste un chemin alternatif)
+                                // BFS again, with the bottleneck cell(s) removed
                                 for _ in 0..100 { 
                                     if (alt_reach & target_mask) != 0 {
                                         found = true;
@@ -437,20 +435,18 @@ impl GameState {
                                         | ((alt_reach & allow_left) >> 1)
                                         | ((alt_reach & allow_right) << 1);
 
-                                    // L'ASTUCE MAGIQUE : On bloque virtuellement le goulot !
                                     next_alt &= !blocked_mask;
 
-                                    if next_alt == alt_reach { break; } // Impasse totale
+                                    if next_alt == alt_reach { break; } // no alternate route
                                     alt_reach = next_alt;
                                     alt_dist += 1;
                                 }
 
                                 if !found {
-                                    // CHANTAGE À LA LÉGALITÉ : Ce chemin est incassable !
-                                    // L'adversaire n'a pas le droit de poser un mur ici, on est immunisé.
+                                    // no alternate route exists, so walling the bottleneck would
+                                    // strand the opponent — that wall placement is illegal
                                     immunity = true; 
                                 } else {
-                                    // Calcul du vrai détour
                                     let delta = (alt_dist - distance) as f32;
                                     if delta > max_delta {
                                         max_delta = delta;
@@ -460,7 +456,6 @@ impl GameState {
                         }
                     }
                     
-                    // On retourne toutes les métriques
                     return (distance, surf, max_delta, tunnel_security, immunity); 
                 }
 
@@ -477,7 +472,6 @@ impl GameState {
             }
         };
 
-        // On lance le super-scanner pour le Joueur 0 (Rouge) et le Joueur 1 (Bleu)
         let (dist_0, surf_0, delta_0, tun_0, imm_0) = flood_fill(0, Self::BOTTOM_EDGE);
         let (dist_1, surf_1, delta_1, tun_1, imm_1) = flood_fill(1, Self::TOP_EDGE);
 
@@ -495,10 +489,10 @@ impl GameState {
 
 
 
-    // ---- FEN Notation ----
-    
+    // ---- FEN notation ----
 
-    /// Renvoie la chaine FEN d'un plateau
+
+    /// Returns the FEN string for this board.
     pub fn get_FEN(&self) -> String {
         let p0 = Self::pos_to_str(self.positions[0]);
         let p1 = Self::pos_to_str(self.positions[1]);
@@ -507,7 +501,6 @@ impl GameState {
         
         let mut walls = Vec::new();
         
-        // On extrait les murs horizontaux
         let mut h = self.walls_h;
         while h != 0 {
             let idx = h.trailing_zeros() as u8;
@@ -515,7 +508,6 @@ impl GameState {
             h &= h - 1;
         }
         
-        // On extrait les murs verticaux
         let mut v = self.walls_v;
         while v != 0 {
             let idx = v.trailing_zeros() as u8;
@@ -529,17 +521,17 @@ impl GameState {
         format!("{}/{}/{}/{}/{} {}", p0, p1, w0, w1, walls_str, turn)
     }
 
-    /// Charge un plateau à partir d'une chaîne FEN
+    /// Loads a board from a FEN string.
     #[staticmethod]
     pub fn load_from_FEN(fen: &str) -> pyo3::PyResult<Self> {
         let parts: Vec<&str> = fen.split_whitespace().collect();
         if parts.len() != 2 {
-            return Err(pyo3::exceptions::PyValueError::new_err("Format FEN invalide (Espace manquant)"));
+            return Err(pyo3::exceptions::PyValueError::new_err("Invalid FEN: missing space separator"));
         }
         
         let board_parts: Vec<&str> = parts[0].split('/').collect();
         if board_parts.len() != 5 {
-            return Err(pyo3::exceptions::PyValueError::new_err("Format FEN invalide (5 blocs requis)"));
+            return Err(pyo3::exceptions::PyValueError::new_err("Invalid FEN: expected 5 fields"));
         }
         
         let p0 = Self::str_to_pos(board_parts[0]);
@@ -550,7 +542,6 @@ impl GameState {
         let mut walls_h = 0u64;
         let mut walls_v = 0u64;
         
-        // Parsing des murs
         if !board_parts[4].is_empty() {
             for w in board_parts[4].split(',') {
                 let bytes = w.as_bytes();
@@ -569,7 +560,7 @@ impl GameState {
         
         let player_to_move = if parts[1] == "R" { 0 } else { 1 };
         
-        // Calcul complet de la table Zobrist
+        // recompute the full Zobrist hash from scratch
         let z = get_zobrist();
         let mut hash = 0u64;
         
@@ -616,7 +607,7 @@ impl GameState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Move {
     #[pyo3(get)]
-    pub move_type: u8, // 0: Déplacement, 1: Mur Vertical, 2: Mur Horizontal
+    pub move_type: u8, // 0: pawn move, 1: vertical wall, 2: horizontal wall
     #[pyo3(get)]
     pub x: u8,
     #[pyo3(get)]
@@ -627,10 +618,10 @@ pub struct Move {
 impl Move {
     fn __repr__(&self) -> String {
         let m_type = match self.move_type {
-            0 => "Déplacement",
-            1 => "Mur_V",
-            2 => "Mur_H",
-            _ => "Inconnu",
+            0 => "Move",
+            1 => "Wall_V",
+            2 => "Wall_H",
+            _ => "Unknown",
         };
         format!("Move(type:{}, x:{}, y:{})", m_type, self.x, self.y)
     }
@@ -646,19 +637,17 @@ impl Move {
 pub struct Engine {
     #[pyo3(get)]
     pub nodes_explored: u64,
-    // HashMap natif ultra-rapide de Rust
     tt: std::collections::HashMap<u64, TTEntry>,
 
-    // Mémoire des Killer Moves (2 coups par niveau de profondeur)
+    // 2 killer moves per ply
     killer_moves: [[Option<Move>; 2]; 128],
 
 
-    // restriction de temps 
+    // time control
     start_time: Option<Instant>,
     time_limit_ms: u64,
     abort_search: bool,
 
-    // Poids de l'évaluation 
     weights: EvalWeights,
 }
 
@@ -666,23 +655,23 @@ pub struct Engine {
 
 
 impl Engine {
-    // Masques pour éviter les débordements de ligne sur la grille 8x8
-    // NOT_COL_A : Tous les bits à 1 SAUF la colonne de gauche (x=0)
+    // bit masks to prevent wraparound on the 8x8 wall grid
+    // NOT_COL_A: all bits set except the leftmost column (x=0)
     const NOT_COL_A: u64 = 0xFEFEFEFEFEFEFEFE;
-    // NOT_COL_H : Tous les bits à 1 SAUF la colonne de droite (x=7)
+    // NOT_COL_H: all bits set except the rightmost column (x=7)
     const NOT_COL_H: u64 = 0x7F7F7F7F7F7F7F7F;
 
 
 
 
 
-    /// --- Gestion du temps ---
+    /// --- Time control ---
     #[inline]
     fn check_time(&mut self) {
         if self.time_limit_ms > 0 {
             if let Some(start) = self.start_time {
                 if start.elapsed().as_millis() as u64 >= self.time_limit_ms {
-                    self.abort_search = true; // On déclenche l'alarme !
+                    self.abort_search = true;
                 }
             }
         }
@@ -694,13 +683,12 @@ impl Engine {
 
 
 
-    /// --- Générations des coups ---
+    /// --- Move generation ---
 
-    /// Génère tous les murs légaux (sans vérifier l'enfermement).
+    /// Generates all legal walls (does not check for player entrapment).
     pub fn generate_legal_walls(state: &GameState, player: u8) -> Vec<Move> {
-        let mut moves = Vec::with_capacity(128); // Pré-allocation 
+        let mut moves = Vec::with_capacity(128);
 
-        // Si le joueur n'a plus de murs, on s'arrête tout de suite.
         if state.walls_left[player as usize] == 0 {
             return moves;
         }
@@ -708,30 +696,26 @@ impl Engine {
         let w_h = state.walls_h;
         let w_v = state.walls_v;
 
-        // MURS HORIZONTAUX
-        // Un mur H est bloqué par : un mur H existant, un mur V existant (croisement), 
-        // un mur H décalé à gauche, ou un mur H décalé à droite.
+        // a horizontal wall is blocked by: an existing H wall, an existing V wall
+        // (crossing), or an H wall shifted one cell left or right
         let invalid_h = w_h 
                       | w_v 
-                      | ((w_h << 1) & Self::NOT_COL_A) // NOT_COL_A : évite le saut de bits de gauche a droite 
+                      | ((w_h << 1) & Self::NOT_COL_A) // mask prevents bits wrapping to the next row
                       | ((w_h >> 1) & Self::NOT_COL_H);
         
         let mut valid_h = !invalid_h;
 
-
-        // Algorithme de Brian Kernighan
+        // Brian Kernighan's bit-clearing trick to iterate set bits
         while valid_h != 0 {
-            // .trailing_zeros() compte les zéros à droite
-            let idx = valid_h.trailing_zeros() as u8; // directement implémenté dans le CPU
+            let idx = valid_h.trailing_zeros() as u8;
             moves.push(Move { move_type: 2, x: idx % 8, y: idx / 8 });
 
             valid_h &= valid_h - 1; 
         }
 
 
-        // MURS VERTICAUX
-        // Un mur V est bloqué par : un mur V existant, un mur H existant (croisement),
-        // un mur V décalé vers le haut (<< 8), ou un mur V décalé vers le bas (>> 8).
+        // a vertical wall is blocked by: an existing V wall, an existing H wall
+        // (crossing), or a V wall shifted one cell up or down
         let invalid_v = w_v 
                       | w_h 
                       | (w_v << 8) 
@@ -748,47 +732,45 @@ impl Engine {
         moves
     }
 
-    /// Génère tous les mouvements de pions valides, y compris les sauts complexes.
+    /// Generates all valid pawn moves, including jumps over the opponent.
     pub fn generate_pawn_moves(state: &GameState, player: u8) -> Vec<Move> {
-        // Un pion a au maximum 5 coups possibles (ex: bloqué devant, saute en diagonale gauche/droite, + arrière + côtés)
+        // a pawn has at most 5 possible moves (straight jump or diagonal jumps
+        // around the opponent, plus the two side moves)
         let mut moves = Vec::with_capacity(5); 
 
         let pos = state.positions[player as usize];
         let opp = state.positions[(1 - player) as usize];
         
-        // Limites du plateau
         let (b_up, b_down, b_left, b_right) = state.get_wall_blockers();
         
-        // Fonction interne
         let can_go = |p: u8, blockers: u128| -> bool {
             (blockers & (1u128 << p)) == 0
         };
 
-        // Fonction interne -- formate l'ajout d'un coup
         let mut add_move = |target_pos: u8| {
             moves.push(Move { move_type: 0, x: target_pos % 9, y: target_pos / 9 });
         };
 
 
 
-        // --- HAUT ---
+        // --- UP ---
         if can_go(pos, b_up) {
             let next_pos = pos - 9;
             if next_pos != opp {
-                add_move(next_pos); // Déplacement normal
+                add_move(next_pos);
             } else {
-                // L'adversaire est devant. On tente d'aller une case plus loins
+                // opponent is right there, try jumping over it
                 if can_go(opp, b_up) {
-                    add_move(opp - 9); // Saut Droit
+                    add_move(opp - 9); // straight jump
                 } else {
-                    // Saut droit bloqué (par un mur ou le bord du plateau) -> Sauts Diagonaux
+                    // straight jump blocked (wall or board edge) -> diagonal jumps
                     if can_go(opp, b_left) { add_move(opp - 1); }
                     if can_go(opp, b_right) { add_move(opp + 1); }
                 }
             }
         }
 
-        // --- BAS ---
+        // --- DOWN ---
         if can_go(pos, b_down) {
             let next_pos = pos + 9;
             if next_pos != opp {
@@ -803,7 +785,7 @@ impl Engine {
             }
         }
 
-        // --- GAUCHE ---
+        // --- LEFT ---
         if can_go(pos, b_left) {
             let next_pos = pos - 1;
             if next_pos != opp {
@@ -818,7 +800,7 @@ impl Engine {
             }
         }
 
-        // --- DROITE ---
+        // --- RIGHT ---
         if can_go(pos, b_right) {
             let next_pos = pos + 1;
             if next_pos != opp {
@@ -839,9 +821,8 @@ impl Engine {
 
 
 
-    // --- Heuristiques ---
-    // Un score positif -> avantage pour le Joueur 0.
-    // Un score positif -> avantage pour le Joueur 0.
+    // --- Heuristics ---
+    // A positive score favors Player 0.
 
 
 
@@ -849,26 +830,25 @@ impl Engine {
         let w = &self.weights;
         let mut score = 0.0;
 
-        // 1. La Course brute
+        // race to the goal
         score += (d1 - d0) * w.mg_course_mult;
         
-        // 2. La Surface (Espace disponible)
+        // reachable space
         score += (surf0 - surf1) * w.mg_surface_mult; 
 
-        // 3. NOUVEAU : La Menace Structurelle (Le prix du vrai détour)
-        // La pénalité n'est appliquée que si l'adversaire a des murs pour exploiter le goulot !
+        // bottleneck threat: penalty only matters if the opponent has walls left to exploit it
         score -= delta0 * (w1 * w.mg_delta_penalty_mult);
         score += delta1 * (w0 * w.mg_delta_penalty_mult);
 
-        // 4. NOUVEAU : La Sécurité des Tunnels
+        // tunnel safety
         score += tunnel0 * w.mg_tunnel_bonus;
         score -= tunnel1 * w.mg_tunnel_bonus;
 
-        // 5. NOUVEAU : L'Immunité (Le chantage à la légalité)
+        // immunity: path can't legally be walled off
         if imm0 { score += w.mg_immunity_bonus; }
         if imm1 { score -= w.mg_immunity_bonus; }
 
-        // 6. Gestion Matérielle
+        // wall count
         let total_dist = d0 + d1;
         let wall_value = w.mg_wall_base_value + w.mg_wall_inflation / (total_dist + 2.0); 
         score += (w0 - w1) * wall_value;
@@ -882,7 +862,7 @@ impl Engine {
         if w0 == 0.0 && w1 > 0.0 { score -= w.mg_panic_penalty; }
         if w1 == 0.0 && w0 > 0.0 { score += w.mg_panic_penalty; }
 
-        // 7. Temps et Gravité
+        // tempo and gravity
         if state.player_to_move == 0 { score += w.mg_tempo_bonus; } 
         else { score -= w.mg_tempo_bonus; }
 
@@ -897,7 +877,7 @@ impl Engine {
         let w = &self.weights;
         let mut score = 0.0;
 
-        // Même logique mais avec les poids de fin de partie
+        // same terms as evaluation_midgame, with the endgame weight set
         score += (d1 - d0) * w.eg_course_mult;
         score += (surf0 - surf1) * w.eg_surface_mult; 
 
@@ -949,6 +929,7 @@ impl Engine {
         let f_score = self.evaluation_endgame(state, d0, d1, w0, w1, surf0, surf1, delta0, delta1, tunnel0, tunnel1, imm0, imm1);
 
 
+        // blend midgame/endgame scores based on total walls remaining
         let x = (w0 + w1) / 20.0;
         let a = 0.15; 
         let b = 0.7;
@@ -957,22 +938,21 @@ impl Engine {
 
 
         if x <= a {
-            factor = 0.0 // Zone morte : 100% Endgame score
+            factor = 0.0 // few walls left: pure endgame score
         } 
         if x >= b {
-            factor = 1.0 // Zone morte : 100% Midgame score
+            factor = 1.0 // many walls left: pure midgame score
         }
         else {
             let u = (x - a) / (b - a);
-            factor = 3.0 * u * u - 2.0 * u * u * u // Courbe de transition smoothstep
+            factor = 3.0 * u * u - 2.0 * u * u * u // smoothstep transition
         };
 
 
 
-        // Interpolation finale
         let mut final_score = f_score + factor * (d_score - f_score);
 
-        // Intégration des termes absolus invariables (Urgence + Bruit)
+        // small terms outside the blend: urgency near the goal, plus tie-breaking noise
         final_score += 30.0 / (d0 + 1.0) - 30.0 / (d1 + 1.0);
         final_score += (state.hash % 100) as f32 * 0.001; 
 
@@ -980,40 +960,38 @@ impl Engine {
     }
 
 
-    /// Trie les coups sur place pour maximiser les coupures Alpha-Beta.
+    /// Sorts moves in place to maximize alpha-beta cutoffs.
     pub fn sort_moves(state: &GameState, moves: &mut [Move], killers: &[Option<Move>; 2]) {
         let opp = 1 - state.player_to_move;
         let opp_pos = state.positions[opp as usize];
         
-        // Coordonnées de l'adversaire
         let opp_x = (opp_pos % 9) as i32;
         let opp_y = (opp_pos / 9) as i32;
 
-        // Tri ultra-rapide sur place (in-place)
         moves.sort_unstable_by_key(|m| {
             let mut score = if m.move_type == 0 {
-                10000  // Pions
+                10000  // pawn moves first
             } else {
                 let dx = (m.x as i32) - opp_x;
                 let dy = (m.y as i32) - opp_y;
-                -(dx * dx + dy * dy) // Murs proches
+                -(dx * dx + dy * dy) // walls closer to the opponent score higher
             };
             
-            // NOUVEAU : BONUS KILLER HEURISTIC
+            // killer move bonus: tested right after the TT move
             if Some(*m) == killers[0] {
-                score += 20000; // Priorité absolue (Testé juste après le coup de la Table de Transposition)
+                score += 20000;
             } else if Some(*m) == killers[1] {
                 score += 15000;
             }
             
-            // Reverse(score) permet de trier par ordre décroissant (du plus grand au plus petit)
+            // Reverse to sort by descending score
             std::cmp::Reverse(score)
         });
     }
 
 
 
-    /// ---- MiniMax ----
+    /// ---- Minimax ----
 
 
     fn minimax(&mut self, state: GameState, depth: u8, ply: usize, mut alpha: f32, mut beta: f32, is_maximizer: bool) -> (f32, Option<Move>) {
@@ -1022,7 +1000,7 @@ impl Engine {
         let orig_beta = beta;
 
 
-        // Gestion du temps 
+        // time control
         if (self.nodes_explored & 2047) == 0 {
             self.check_time();
         }
@@ -1031,7 +1009,7 @@ impl Engine {
         }
 
 
-        // Sécurité pour ne pas déborder du tableau (
+        // clamp to avoid overflowing the killer_moves array
         let safe_ply = ply.min(127);
 
 
@@ -1053,13 +1031,12 @@ impl Engine {
         }
 
 
-        // Conditions d'arrêt
+        // terminal conditions
         let finished = state.is_game_finished();
         if finished == 0 { return (10000.0 + depth as f32, None); }
         if finished == 1 { return (-10000.0 - depth as f32, None); }
         
 
-        // --- Quiescence Search ---
         if depth == 0 { 
             let q_score = self.quiescence(state, alpha, beta, is_maximizer, ply, 0);
             return (q_score, None); 
@@ -1067,13 +1044,12 @@ impl Engine {
 
 
 
-        // Génération et Tri des Coups
+        // move generation and ordering
         let killers = self.killer_moves[safe_ply];
         let mut moves = Self::get_all_moves(&state, state.player_to_move);
         
 
-        // Si la TableTransposition nous suggère un coup, on le place en premier (O(1) avec swap)
-                
+        // if the TT suggests a move, try it first
         if let Some(tm) = tt_move {
             if let Some(pos) = moves.iter().position(|&m| m == tm) {
                 moves.swap(0, pos);
@@ -1088,7 +1064,6 @@ impl Engine {
         let mut best_move = None;
         let mut best_score = if is_maximizer { f32::NEG_INFINITY } else { f32::INFINITY };
 
-        //  Boucle Principale
         for (i, m) in moves.iter().enumerate() {
             let child_state = state.apply_move(m.move_type, m.x, m.y);
 
@@ -1100,6 +1075,8 @@ impl Engine {
             let is_late_move = i >= 4;
             let is_wall = m.move_type != 0;
 
+            // late move reduction: search late wall moves at reduced depth first,
+            // and only re-search at full depth if they look like they might improve alpha/beta
             if depth >= 3 && is_late_move && is_wall {
                 value = self.minimax(child_state, depth - 2, ply + 1, alpha, beta, !is_maximizer).0;
                 if is_maximizer && value > alpha {
@@ -1120,10 +1097,10 @@ impl Engine {
                 }
                 alpha = alpha.max(best_score);
                 if best_score >= beta { 
-                    // Coupure + mémorisation du killer Move
+                    // beta cutoff: record as a killer move for this ply
                     if self.killer_moves[safe_ply][0] != Some(*m) {
-                        self.killer_moves[safe_ply][1] = self.killer_moves[safe_ply][0]; // Décale l'ancien #1 en #2
-                        self.killer_moves[safe_ply][0] = Some(*m); // Enregistre le nouveau #1
+                        self.killer_moves[safe_ply][1] = self.killer_moves[safe_ply][0];
+                        self.killer_moves[safe_ply][0] = Some(*m);
                     }
                     break; 
                 }
@@ -1134,7 +1111,7 @@ impl Engine {
                 }
                 beta = beta.min(best_score);
                 if best_score <= alpha { 
-                    // Coupure + mémorisation du killer Move
+                    // alpha cutoff: record as a killer move for this ply
                     if self.killer_moves[safe_ply][0] != Some(*m) {
                         self.killer_moves[safe_ply][1] = self.killer_moves[safe_ply][0];
                         self.killer_moves[safe_ply][0] = Some(*m);
@@ -1146,7 +1123,7 @@ impl Engine {
 
 
 
-        //  Écriture dans la Table de Transposition
+        // store result in the transposition table
         let flag = if best_score <= orig_alpha {
             FLAG_UPPERBOUND
         } else if best_score >= orig_beta {
@@ -1167,15 +1144,17 @@ impl Engine {
 
 
 
-    /// Recherche de Stabilité (Quiescence Search)
-    /// Résout l'Effet d'Horizon en prolongeant la recherche sur les coups violents
+    /// Quiescence search: extends the search past violent moves to avoid the
+    /// horizon effect.
+    ///
+    /// NOTE: the early return below makes everything after it unreachable.
     fn quiescence(&mut self, state: GameState, mut alpha: f32, mut beta: f32, is_maximizer: bool, ply: usize, q_depth: u8) -> f32 {
         self.nodes_explored += 1;
 
         return self.evaluate(&state);
 
 
-        // Gestion du temps 
+        // time control
         if (self.nodes_explored & 2047) == 0 {
             self.check_time();
         }
@@ -1188,17 +1167,16 @@ impl Engine {
         if finished == 0 { return 10000.0; }
         if finished == 1 { return -10000.0; }
         
-        // Limite stricte
-        if q_depth >= 0 { return self.evaluate(&state); } // ---- Limite à partir de laquelle on stop le quiescence search ----
+        if q_depth >= 0 { return self.evaluate(&state); } // quiescence depth cutoff
 
-        // L'évaluation "Stand Pat" (On suppose qu'on peut toujours ne rien faire)
+        // stand-pat: assume "doing nothing" is always an option
         let stand_pat = self.evaluate(&state);
 
         if is_maximizer {
-            if stand_pat >= beta { return beta; } // Coupure Beta immédiate
+            if stand_pat >= beta { return beta; }
             alpha = alpha.max(stand_pat);
         } else {
-            if stand_pat <= alpha { return alpha; } // Coupure Alpha immédiate
+            if stand_pat <= alpha { return alpha; }
             beta = beta.min(stand_pat);
         }
 
@@ -1210,7 +1188,7 @@ impl Engine {
             let legal_walls = Self::generate_legal_walls(&state, state.player_to_move);
             
             if let Some(k1) = self.killer_moves[safe_ply][0] {
-                if k1.move_type != 0 && legal_walls.contains(&k1) { moves.push(k1); } // vérifie que le killer move ne soit pas un déplacement vers un mur 
+                if k1.move_type != 0 && legal_walls.contains(&k1) { moves.push(k1); } // killer move must still be a legal wall
             }
             if let Some(k2) = self.killer_moves[safe_ply][1] {
                 if k2.move_type != 0 && legal_walls.contains(&k2) && Some(k2) != self.killer_moves[safe_ply][0] { 
@@ -1224,12 +1202,10 @@ impl Engine {
         for m in moves {
             let child_state = state.apply_move(m.move_type, m.x, m.y);
 
-            // Vérification anti-enfermement pour les murs tueurs
             if m.move_type != 0 {
                 if !child_state.is_state_valid() { continue; }
             }
 
-            // Appel récursif de la quiescence (q_depth augmente)
             let value = self.quiescence(child_state, alpha, beta, !is_maximizer, ply + 1, q_depth + 1);
 
             if is_maximizer {
@@ -1279,31 +1255,30 @@ impl Engine {
         self.weights = new_weights;
     }
 
-    /// Vide le cache (utile si on relance une nouvelle partie)
+    /// Clears the transposition table and killer moves (call between games).
     pub fn clear_cache(&mut self) {
         self.tt.clear();
         self.killer_moves = [[None; 2]; 128];
     }
 
-    /// Le point d'entrée officiel de l'IA
+    /// Entry point: searches for the best move under the given depth/time budget.
     pub fn get_best_move(&mut self, state: &GameState, max_depth: u8, time_limit_ms: u64, player_to_maximise: u8) -> Option<Move> {
         self.nodes_explored = 0;
         
-        // Démarrage de la montre
         self.start_time = Some(Instant::now());
         self.time_limit_ms = time_limit_ms;
         self.abort_search = false;
 
         let mut overall_best_action = None;
 
-        // Iterative Deepening
+        // iterative deepening
         for d in 1..=max_depth {
             self.killer_moves = [[None; 2]; 128]; 
             
             let (_, m) = self.minimax(*state, d, 0, f32::NEG_INFINITY, f32::INFINITY, state.player_to_move == player_to_maximise);
             
 
-            if self.abort_search { // ne sauvegarde pas si on a abandonné la recherche 
+            if self.abort_search { // discard this depth's result if the search was cut short
                 break;
             }
             
@@ -1324,7 +1299,7 @@ const FLAG_EXACT: u8 = 0;
 const FLAG_LOWERBOUND: u8 = 1;
 const FLAG_UPPERBOUND: u8 = 2;
 
-/// Table de transposition
+/// Transposition table entry.
 #[derive(Clone, Copy)]
 pub struct TTEntry {
     pub depth: u8,
@@ -1335,7 +1310,7 @@ pub struct TTEntry {
 
 
 
-// L'initialisation du module
+// Python module init
 #[pymodule]
 fn kuyper(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<GameState>()?;
