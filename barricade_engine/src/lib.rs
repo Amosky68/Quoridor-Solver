@@ -1337,7 +1337,7 @@ pub struct TTEntry {
 
 // L'initialisation du module
 #[pymodule]
-fn barricade_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn kuyper(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<GameState>()?;
     m.add_class::<Move>()?; 
     m.add_class::<Engine>()?;

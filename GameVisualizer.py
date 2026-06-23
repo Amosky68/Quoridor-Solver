@@ -1,20 +1,22 @@
 import arcade
-import barricade_engine 
+import kuyper 
 from arcade.types import Color
 from buttons import Button
 import multiprocessing
+
+
 
 def ai_worker_target(move_history, queue, player_to_maximise):
     """
     Tourne dans un processus séparé. 
     On reconstruit l'état depuis l'historique pour éviter les crashs de sérialisation PyO3.
     """
-    state = barricade_engine.GameState()
+    state = kuyper.GameState()
     for m_type, mx, my in move_history:
         state = state.apply_move(m_type, mx, my)
 
 
-    engine = barricade_engine.Engine()
+    engine = kuyper.Engine()
 
     total_walls_left = state.walls_left[0] + state.walls_left[1]
     dynamic_depth = 8
@@ -113,7 +115,7 @@ class BarricadeGame(arcade.Window):
     def __init__(self, width, height):
         super().__init__(width, height, "Barricade Solver (Powered by Rust)", resizable=False)
         
-        self.state = barricade_engine.GameState()
+        self.state = kuyper.GameState()
         self.move_history = [] # Enregistre les coups pour le Multiprocessing
         self.human_player = 1
 
@@ -152,7 +154,7 @@ class BarricadeGame(arcade.Window):
         self.ai_computing = False
         self.loading_timer = 0.0
 
-        self.state = barricade_engine.GameState()
+        self.state = kuyper.GameState()
         self.move_history = []
 
     def on_draw(self):
@@ -169,7 +171,7 @@ class BarricadeGame(arcade.Window):
                     
         # Mouvements légaux
         if self.state.player_to_move == self.human_player and self.state.is_game_finished() == -1:
-            moves = barricade_engine.Engine.get_all_moves(self.state, self.human_player)
+            moves = kuyper.Engine.get_all_moves(self.state, self.human_player)
             for m in moves:
                 if m.move_type == 0:
                     l, b, w, h = GameVisualizerUtils.get_visual_box(m.x, m.y)
@@ -246,7 +248,7 @@ class BarricadeGame(arcade.Window):
         if self.state.player_to_move != self.human_player or self.state.is_game_finished() != -1:
             return
         
-        valid_moves = barricade_engine.Engine.get_all_moves(self.state, self.human_player)
+        valid_moves = kuyper.Engine.get_all_moves(self.state, self.human_player)
 
         if button == arcade.MOUSE_BUTTON_LEFT and not self.is_maj_pressed:
             box = GameVisualizerUtils.get_box_at(x, y)
