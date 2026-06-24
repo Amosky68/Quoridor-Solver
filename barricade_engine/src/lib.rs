@@ -940,7 +940,7 @@ impl Engine {
         if x <= a {
             factor = 0.0 // few walls left: pure endgame score
         } 
-        if x >= b {
+        else if x >= b {
             factor = 1.0 // many walls left: pure midgame score
         }
         else {
@@ -1151,8 +1151,6 @@ impl Engine {
     fn quiescence(&mut self, state: GameState, mut alpha: f32, mut beta: f32, is_maximizer: bool, ply: usize, q_depth: u8) -> f32 {
         self.nodes_explored += 1;
 
-        return self.evaluate(&state);
-
 
         // time control
         if (self.nodes_explored & 2047) == 0 {
@@ -1167,7 +1165,7 @@ impl Engine {
         if finished == 0 { return 10000.0; }
         if finished == 1 { return -10000.0; }
         
-        if q_depth >= 0 { return self.evaluate(&state); } // quiescence depth cutoff
+        if q_depth >= 2 { return self.evaluate(&state); } // quiescence depth cutoff
 
         // stand-pat: assume "doing nothing" is always an option
         let stand_pat = self.evaluate(&state);

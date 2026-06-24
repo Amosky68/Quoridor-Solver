@@ -28,7 +28,7 @@ def ai_worker_target(move_history, queue, player_to_maximise):
         dynamic_depth = 12 # C'est une pure course ou un dernier blocage, on lit l'avenir !
     
 
-    best_move = engine.get_best_move(state, max_depth=40, time_limit_ms=10000, player_to_maximise=0)
+    best_move = engine.get_best_move(state, max_depth=40, time_limit_ms=3000, player_to_maximise=0)
 
     if best_move:
         queue.put((best_move.move_type, best_move.x, best_move.y))
