@@ -1,5 +1,5 @@
 import arcade
-import kuyper 
+import kuyper
 from arcade.types import Color
 from buttons import Button
 import multiprocessing
@@ -16,19 +16,8 @@ def ai_worker_target(move_history, queue, player_to_maximise):
         state = state.apply_move(m_type, mx, my)
 
 
-    engine = kuyper.Engine()
-
-    total_walls_left = state.walls_left[0] + state.walls_left[1]
-    dynamic_depth = 8
-    if total_walls_left <= 12:
-        dynamic_depth = 9
-    if total_walls_left <= 6:
-        dynamic_depth = 10
-    if total_walls_left <= 2:
-        dynamic_depth = 12 # C'est une pure course ou un dernier blocage, on lit l'avenir !
-    
-
-    best_move = engine.get_best_move(state, max_depth=40, time_limit_ms=3000, player_to_maximise=0)
+    engine = kuyper.Engine() 
+    best_move = engine.get_best_move(state, max_depth=40, time_limit_ms=6000, node_limit = 10_000_000, player_to_maximise=0)
 
     if best_move:
         queue.put((best_move.move_type, best_move.x, best_move.y))

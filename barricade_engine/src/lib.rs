@@ -646,6 +646,7 @@ pub struct Engine {
     // time control
     start_time: Option<Instant>,
     time_limit_ms: u64,
+    node_limit : u64,
     abort_search: bool,
 
     weights: EvalWeights,
@@ -673,6 +674,15 @@ impl Engine {
                 if start.elapsed().as_millis() as u64 >= self.time_limit_ms {
                     self.abort_search = true;
                 }
+            }
+        }
+    }
+
+    #[inline]
+    fn check_nodeCount(&mut self) {
+        if self.node_limit > 0 {
+            if (self.nodes_explored > self.node_limit) {
+                self.abort_search = true;
             }
         }
     }
@@ -1003,6 +1013,7 @@ impl Engine {
         // time control
         if (self.nodes_explored & 2047) == 0 {
             self.check_time();
+            self.check_nodeCount();
         }
         if self.abort_search {
             return (0.0, None); 
@@ -1155,6 +1166,7 @@ impl Engine {
         // time control
         if (self.nodes_explored & 2047) == 0 {
             self.check_time();
+            self.check_nodeCount();
         }
         if self.abort_search {
             return 0.0;
@@ -1244,6 +1256,7 @@ impl Engine {
             killer_moves: [[None; 2]; 128],
             start_time: None,
             time_limit_ms: 0,
+            node_limit: 0,
             abort_search: false,
             weights: EvalWeights::new(),
         }
@@ -1260,11 +1273,12 @@ impl Engine {
     }
 
     /// Entry point: searches for the best move under the given depth/time budget.
-    pub fn get_best_move(&mut self, state: &GameState, max_depth: u8, time_limit_ms: u64, player_to_maximise: u8) -> Option<Move> {
+    pub fn get_best_move(&mut self, state: &GameState, max_depth: u8, time_limit_ms: u64, node_limit: u64, player_to_maximise: u8) -> Option<Move> {
         self.nodes_explored = 0;
         
         self.start_time = Some(Instant::now());
         self.time_limit_ms = time_limit_ms;
+        self.node_limit = node_limit;
         self.abort_search = false;
 
         let mut overall_best_action = None;
